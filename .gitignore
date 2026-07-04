@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+*.py
+.mypy_cache/
+.pytest_cache/
+.workbuddy/
+*.log
+temp/
