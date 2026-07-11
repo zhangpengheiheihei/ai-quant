@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI Quant 回测工作台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh;overflow-x:hidden}
+.top{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:12px 20px;border-bottom:1px solid rgba(102,126,234,.3);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.top h1{font-size:18px;background:linear-gradient(90deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700}
+.nav{display:flex;gap:8px}
+.nav a{color:#b8c4ff;text-decoration:none;font-size:12px;padding:5px 12px;background:#1a1a2e;border-radius:5px;border:1px solid #333}
+.nav a:hover{border-color:#667eea}
+.wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;padding:12px;max-width:1900px;margin:0 auto}
+.panel{background:#12121a;border:1px solid #222;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.right{display:flex;flex-direction:column;gap:12px}
+.sec{border-bottom:1px solid #222;padding-bottom:12px}
+.sec:last-child{border-bottom:none}
+.sec h3{font-size:12px;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:6px}
+.sec h3::before{content:'';width:3px;height:12px;background:#667eea;border-radius:2px}
+.grp{margin-bottom:10px}
+.grp:last-child{margin-bottom:0}
+.grp label{font-size:12px;color:#aaa;display:block;margin-bottom:5px}
+input,select{width:100%;background:#1a1a2e;border:1px solid #333;color:#e0e0e0;padding:7px 10px;border-radius:5px;font-size:13px;outline:none}
+input:focus,select:focus{border-color:#667eea}
+input[type=number]{-moz-appearance:textfield}
+.range-grp{display:flex;gap:6px}
+.range-grp button{flex:1;background:#1a1a2e;border:1px solid #333;color:#aaa;padding:5px;border-radius:4px;font-size:11px;cursor:pointer}
+.range-grp button.on{background:#667eea;border-color:#667eea;color:#fff}
+.strats{display:flex;flex-direction:column;gap:6px}
+.strat{display:flex;align-items:center;justify-content:space-between;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:8px 10px;cursor:pointer;transition:all .2s}
+.strat:hover{border-color:#667eea}
+.strat.on{background:rgba(102,126,234,.15);border-color:#667eea}
+.strat-l{display:flex;align-items:center;gap:8px;font-size:12px}
+.strat-cb{width:14px;height:14px;border:1.5px solid #555;border-radius:3px;display:flex;align-items:center;justify-content:center}
+.strat.on .strat-cb{background:#667eea;border-color:#667eea}
+.strat.on .strat-cb::after{content:'✓';color:#fff;font-size:10px;font-weight:bold}
+.strat-tag{font-size:10px;padding:2px 6px;border-radius:8px;background:#333;color:#aaa}
+.strat.on .strat-tag{background:#667eea;color:#fff}
+.custom{background:#1a1a2e;padding:10px;border-radius:6px;border:1px dashed #444;margin-top:8px}
+.custom .grp{margin-bottom:6px}
+.custom label{font-size:11px}
+.custom input{padding:5px 8px;font-size:12px}
+.custom-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.run-btn{width:100%;padding:10px;background:linear-gradient(90deg,#667eea,#764ba2);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:1px;transition:transform .2s}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(102,126,234,.4)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.reset-btn{width:100%;padding:7px;background:transparent;color:#888;border:1px solid #333;border-radius:5px;font-size:12px;cursor:pointer;margin-top:6px}
+.reset-btn:hover{border-color:#f093fb;color:#f093fb}
+.stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat-card{background:#12121a;border:1px solid #222;border-radius:10px;padding:14px}
+.stat-card .l{font-size:11px;color:#888;margin-bottom:6px}
+.stat-card .v{font-size:20px;font-weight:700}
+.stat-card .s{font-size:11px;color:#666;margin-top:3px}
+.card{background:#12121a;border:1px solid #222;border-radius:10px;padding:14px}
+.card h3{font-size:13px;color:#aaa;margin-bottom:8px;padding-left:8px;border-left:3px solid #667eea}
+.chart{width:100%;height:340px}
+.chart.sm{height:220px}
+.pos{color:#ff4757}.neg{color:#2ed573}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 6px;color:#888;font-weight:500;border-bottom:1px solid #222;background:#1a1a2e}
+td{padding:8px 6px;border-bottom:1px solid #1a1a2e}
+tr:hover td{background:#1a1a2e}
+.hint{background:#1a1a2e;color:#888;padding:20px;text-align:center;border-radius:8px;font-size:12px;border:1px dashed #333}
+@media (max-width:1200px){.wrap{grid-template-columns:1fr}.stat-cards{grid-template-columns:1fr 1fr}.pair{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top">
+<h1>⚙️ AI Quant 回测工作台</h1>
+<div class="nav">
+<a href="index.html">📑 作业主页</a>
+<a href="dashboard.html">📊 实战面板</a>
+<a href="https://github.com/zhangpengheiheihei/ai-quant" target="_blank">🔗 GitHub</a>
+</div>
+</div>
+
+<div class="wrap">
+<!-- 左侧配置栏 -->
+<div class="panel">
+
+<div class="sec">
+<h3>📈 标的与区间</h3>
+<div class="grp"><label>股票代码</label>
+<select id="stock">
+<option value="task01/gaoneng_huanjing_daily.csv">603588 高能环境</option>
+<option value="stock_002594.csv">002594 比亚迪</option>
+<option value="stock_300750.csv">300750 宁德时代</option>
+<option value="stock_600519.csv">600519 贵州茅台</option>
+<option value="stock_601318.csv">601318 中国平安</option>
+</select></div>
+<div class="grp"><label>时间范围</label>
+<div class="range-grp">
+<button data-rn="30">30日</button>
+<button data-rn="60">60日</button>
+<button data-rn="120">120日</button>
+<button class="on" data-rn="250">1年</button>
+<button data-rn="0">全部</button>
+</div></div>
+<div class="grp"><label>或自定义起止日期</label>
+<div class="custom-row">
+<input type="date" id="startDate">
+<input type="date" id="endDate">
+</div></div>
+</div>
+
+<div class="sec">
+<h3>🎯 选择备选策略</h3>
+<div class="strats">
+<div class="strat on" data-s="dualma"><div class="strat-l"><div class="strat-cb"></div><span>双均线策略</span></div><span class="strat-tag">MA</span></div>
+<div class="strat on" data-s="turtle"><div class="strat-l"><div class="strat-cb"></div><span>海龟突破策略</span></div><span class="strat-tag">通道</span></div>
+<div class="strat" data-s="macd"><div class="strat-l"><div class="strat-cb"></div><span>MACD 金叉策略</span></div><span class="strat-tag">MACD</span></div>
+<div class="strat" data-s="rsi"><div class="strat-l"><div class="strat-cb"></div><span>RSI 超买超卖</span></div><span class="strat-tag">RSI</span></div>
+<div class="strat" data-s="boll"><div class="strat-l"><div class="strat-cb"></div><span>BOLL 通道突破</span></div><span class="strat-tag">BOLL</span></div>
+<div class="strat" data-s="bh"><div class="strat-l"><div class="strat-cb"></div><span>买入持有(基准)</span></div><span class="strat-tag">BH</span></div>
+</div>
+</div>
+
+<div class="sec">
+<h3>⚙️ 策略参数</h3>
+<div class="custom">
+<div style="font-size:11px;color:#888;margin-bottom:8px">双均线参数</div>
+<div class="custom-row">
+<div class="grp"><label>短周期</label><input type="number" id="p_ma_s" value="5" min="1" max="60"></div>
+<div class="grp"><label>长周期</label><input type="number" id="p_ma_l" value="20" min="5" max="120"></div>
+</div>
+</div>
+<div class="custom">
+<div style="font-size:11px;color:#888;margin-bottom:8px">海龟参数</div>
+<div class="custom-row">
+<div class="grp"><label>入场周期</label><input type="number" id="p_tt_i" value="20" min="5" max="60"></div>
+<div class="grp"><label>止损周期</label><input type="number" id="p_tt_o" value="10" min="3" max="30"></div>
+</div>
+</div>
+<div class="custom">
+<div style="font-size:11px;color:#888;margin-bottom:8px">RSI 参数</div>
+<div class="custom-row">
+<div class="grp"><label>超买阈值</label><input type="number" id="p_rsi_h" value="70" min="60" max="90"></div>
+<div class="grp"><label>超卖阈值</label><input type="number" id="p_rsi_l" value="30" min="10" max="40"></div>
+</div>
+</div>
+</div>
+
+<div class="sec">
+<h3>💰 资金与交易成本</h3>
+<div class="grp"><label>初始资金 (¥)</label><input type="number" id="cash" value="100000" step="10000" min="10000"></div>
+<div class="grp"><label>滑点 (%)</label><input type="number" id="slip" value="0.1" step="0.05" min="0" max="5"></div>
+<div class="grp"><label>手续费 (双边, %)</label><input type="number" id="fee" value="0.03" step="0.01" min="0" max="1"></div>
+</div>
+
+<button class="run-btn" id="runBtn">▶ 运行回测</button>
+<button class="reset-btn" id="resetBtn">重置为默认参数</button>
+
+</div>
+
+<!-- 右侧结果区 -->
+<div class="right">
+
+<div class="stat-cards" id="statCards">
+<div class="stat-card"><div class="l">最优策略</div><div class="v" style="font-size:16px;color:#667eea">--</div><div class="s">运行后显示</div></div>
+<div class="stat-card"><div class="l">最优累计收益</div><div class="v" id="topRet">--</div><div class="s">对比基准</div></div>
+<div class="stat-card"><div class="l">最优年化</div><div class="v" id="topAnn">--</div><div class="s">--</div></div>
+<div class="stat-card"><div class="l">最小回撤策略</div><div class="v" id="minDd" style="font-size:16px;color:#2ed573">--</div><div class="s">--</div></div>
+</div>
+
+<div class="card"><h3>📈 K线走势 & 交易信号</h3><div id="c_price" class="chart"></div></div>
+
+<div class="card"><h3>💰 策略资金曲线对比</h3><div id="c_equity" class="chart"></div></div>
+
+<div class="pair">
+<div class="card"><h3>📊 各策略回撤对比</h3><div id="c_dd" class="chart sm"></div></div>
+<div class="card"><h3>📊 收益率分布</h3><div id="c_dist" class="chart sm"></div></div>
+</div>
+
+<div class="card">
+<h3>📋 详细回测结果</h3>
+<table id="resTable">
+<thead><tr><th>策略</th><th>累计收益</th><th>年化</th><th>最大回撤</th><th>夏普比率</th><th>胜率</th><th>盈亏比</th><th>交易次数</th></tr></thead>
+<tbody><tr><td colspan="8" class="hint">👈 请在左侧配置参数后点击"运行回测"</td></tr></tbody>
+</table>
+</div>
+
+</div>
+</div>
+<script>
+const MA=(a,n)=>a.map((_,i)=>i<n-1?null:a.slice(i-n+1,i+1).reduce((s,x)=>s+x,0)/n);
+const EMA=(a,n)=>{const k=2/(n+1),r=[a[0]];for(let i=1;i<a.length;i++)r.push(a[i]*k+r[i-1]*(1-k));return r};
+const STD=(a,n)=>a.map((_,i)=>{if(i<n-1)return null;const s=a.slice(i-n+1,i+1),m=s.reduce((x,y)=>x+y,0)/n;return Math.sqrt(s.reduce((x,y)=>x+(y-m)**2,0)/n)});
+function BOLL(c,n,k){const m=MA(c,n),sd=STD(c,n);return{mid:m,up:m.map((v,i)=>v==null?null:v+k*sd[i]),low:m.map((v,i)=>v==null?null:v-k*sd[i])}}
+function MACD(c){const ef=EMA(c,12),es=EMA(c,26),dif=ef.map((v,i)=>v-es[i]),dea=EMA(dif,9),bar=dif.map((v,i)=>(v-dea[i])*2);return{dif,dea,bar}}
+function RSI(c,n){const r=[null];const ch=c.slice(1).map((v,i)=>v-c[i]);let ag=0,al=0;for(let i=0;i<ch.length;i++){const g=ch[i]>0?ch[i]:0,ls=ch[i]<0?-ch[i]:0;if(i<n){ag+=g;al+=ls;if(i===n-1){ag/=n;al/=n;r.push(al===0?100:100-100/(1+ag/al))}else r.push(null)}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+ls)/n;r.push(al===0?100:100-100/(1+ag/al))}}return r}
+const pct=(v,p)=>(v>=0?'+':'')+(v*100).toFixed(p||2)+'%';
+const fp=v=>v==null?'--':v.toFixed(2);
+// 通用回测引擎：buySignal/sellSignal 为函数 (i) => bool
+function backtest(cl,hi,lo,cash,slip,fee,buySignal,sellSignal){
+  const eq=[],trades=[];
+  let pos=0,c=cash,ip=0,w=0,t=0;
+  const cost=slip/100+fee/100; // 单边成本
+  for(let i=0;i<cl.length;i++){
+    if(pos===0&&buySignal(i)){
+      const px=cl[i]*(1+cost);
+      pos=Math.floor(c/px/100)*100;
+      if(pos>0){c-=pos*px;ip=px;t++;trades.push({i,type:'buy',price:cl[i]})}
+    }else if(pos>0&&sellSignal(i)){
+      const px=cl[i]*(1-cost);
+      c+=pos*px;
+      const pnl=(px-ip)/ip;
+      if(pnl>0)w++;
+      trades.push({i,type:'sell',price:cl[i],pnl});
+      pos=0;
+    }
+    eq.push(c+pos*cl[i]);
+  }
+  return{eq,trades,tot:t,wr:t?w/t:0};
+}
+
+function runStrategy(name,params,cl,hi,lo,cash,slip,fee){
+  const ml=params.p_ma_l,ms=params.p_ma_s;
+  const ti=params.p_tt_i,to=params.p_tt_o;
+  const rh=params.p_rsi_h,rl=params.p_rsi_l;
+  if(name==='dualma'){
+    const m5=MA(cl,ms),m20=MA(cl,ml);
+    return backtest(cl,hi,lo,cash,slip,fee,
+      i=>i>0&&m5[i]!=null&&m20[i]!=null&&m5[i-1]<=m20[i-1]&&m5[i]>m20[i],
+      i=>i>0&&m5[i]!=null&&m20[i]!=null&&m5[i-1]>=m20[i-1]&&m5[i]<m20[i]);
+  }
+  if(name==='turtle'){
+    return backtest(cl,hi,lo,cash,slip,fee,
+      i=>{if(i<ti)return false;const h=Math.max(...hi.slice(i-ti,i));return cl[i]>h},
+      i=>{if(i<to)return false;const l=Math.min(...lo.slice(i-to,i));return cl[i]<l});
+  }
+  if(name==='macd'){
+    const m=MACD(cl);
+    return backtest(cl,hi,lo,cash,slip,fee,
+      i=>i>0&&m.bar[i-1]<=0&&m.bar[i]>0,
+      i=>i>0&&m.bar[i-1]>=0&&m.bar[i]<0);
+  }
+  if(name==='rsi'){
+    const r=RSI(cl,14);
+    return backtest(cl,hi,lo,cash,slip,fee,
+      i=>i>0&&r[i-1]!=null&&r[i-1]<rl&&r[i]>=rl,
+      i=>i>0&&r[i-1]!=null&&r[i-1]>rh&&r[i]<=rh);
+  }
+  if(name==='boll'){
+    const b=BOLL(cl,20,2);
+    return backtest(cl,hi,lo,cash,slip,fee,
+      i=>b.low[i]!=null&&cl[i-1]<=b.low[i-1]&&cl[i]>b.low[i],
+      i=>b.up[i]!=null&&cl[i-1]>=b.up[i-1]&&cl[i]<b.up[i]);
+  }
+  if(name==='bh'){
+    return{eq:cl.map(x=>x/cl[0]*cash),trades:[{i:0,type:'buy',price:cl[0]}],tot:1,wr:0};
+  }
+}
+
+function stats(eq,days){
+  if(!eq||eq.length<2)return{r:0,a:0,mdd:0,sharpe:0,pl:0};
+  const r=(eq[eq.length-1]-eq[0])/eq[0];
+  const a=days>0?Math.pow(1+r,250/days)-1:0;
+  let p=eq[0],mdd=0;
+  for(const v of eq){if(v>p)p=v;const d=(p-v)/p;if(d>mdd)mdd=d}
+  const rets=[];
+  for(let i=1;i<eq.length;i++)rets.push((eq[i]-eq[i-1])/eq[i-1]);
+  const mean=rets.reduce((s,x)=>s+x,0)/rets.length;
+  const std=Math.sqrt(rets.reduce((s,x)=>s+(x-mean)**2,0)/rets.length);
+  const sharpe=std>0?mean/std*Math.sqrt(250):0;
+  return{r,a,mdd,sharpe};
+}
+
+function calcPL(trades){
+  const gains=[],losses=[];
+  for(const t of trades){if(t.type==='sell'&&t.pnl!=null){if(t.pnl>0)gains.push(t.pnl);else losses.push(-t.pnl)}}
+  if(losses.length===0)return gains.length>0?999:0;
+  const avgG=gains.length>0?gains.reduce((s,x)=>s+x,0)/gains.length:0;
+  const avgL=losses.reduce((s,x)=>s+x,0)/losses.length;
+  return avgL>0?avgG/avgL:0;
+}
+let DATA=null,CURR_STOCK='';
+const STRAT_META={
+  dualma:{name:'双均线',color:'#ffa502'},
+  turtle:{name:'海龟策略',color:'#667eea'},
+  macd:{name:'MACD金叉',color:'#00d2d3'},
+  rsi:{name:'RSI反转',color:'#f093fb'},
+  boll:{name:'BOLL通道',color:'#feca57'},
+  bh:{name:'买入持有',color:'#888'}
+};
+
+function loadStock(path,cb){
+  Papa.parse(path,{download:true,header:true,dynamicTyping:true,complete:r=>{
+    DATA=r.data.filter(x=>x.date&&x.close);CURR_STOCK=path;cb();
+  }});
+}
+
+function getFilteredData(){
+  if(!DATA)return null;
+  const activeBtn=document.querySelector('.range-grp button.on');
+  const rn=activeBtn?parseInt(activeBtn.dataset.rn):250;
+  const sd=document.getElementById('startDate').value;
+  const ed=document.getElementById('endDate').value;
+  let d=DATA;
+  if(sd||ed){
+    d=DATA.filter(x=>(!sd||x.date>=sd)&&(!ed||x.date<=ed));
+  }else if(rn>0){
+    d=DATA.slice(-rn);
+  }
+  return d;
+}
+
+function runBacktest(){
+  const data=getFilteredData();
+  if(!data||data.length<30){alert('数据不足，请扩大时间范围');return}
+  const dates=data.map(x=>x.date),cl=data.map(x=>x.close),hi=data.map(x=>x.high),lo=data.map(x=>x.low),op=data.map(x=>x.open);
+  const selected=[...document.querySelectorAll('.strat.on')].map(x=>x.dataset.s);
+  if(selected.length===0){alert('请至少选择一个策略');return}
+  const cash=parseFloat(document.getElementById('cash').value)||100000;
+  const slip=parseFloat(document.getElementById('slip').value)||0;
+  const fee=parseFloat(document.getElementById('fee').value)||0;
+  const params={
+    p_ma_s:parseInt(document.getElementById('p_ma_s').value)||5,
+    p_ma_l:parseInt(document.getElementById('p_ma_l').value)||20,
+    p_tt_i:parseInt(document.getElementById('p_tt_i').value)||20,
+    p_tt_o:parseInt(document.getElementById('p_tt_o').value)||10,
+    p_rsi_h:parseInt(document.getElementById('p_rsi_h').value)||70,
+    p_rsi_l:parseInt(document.getElementById('p_rsi_l').value)||30
+  };
+  const results=[];
+  for(const s of selected){
+    const r=runStrategy(s,params,cl,hi,lo,cash,slip,fee);
+    if(!r)continue;
+    const st=stats(r.eq,data.length);
+    results.push({key:s,name:STRAT_META[s].name,color:STRAT_META[s].color,...r,...st,pl:calcPL(r.trades)});
+  }
+  // 排序找最优
+  const sorted=[...results].sort((a,b)=>b.r-a.r);
+  const best=sorted[0];
+  const minDd=[...results].sort((a,b)=>a.mdd-b.mdd)[0];
+  // 更新头部卡片
+  document.getElementById('statCards').innerHTML=`
+    <div class="stat-card"><div class="l">🏆 最优策略</div><div class="v" style="font-size:16px;color:${best.color}">${best.name}</div><div class="s">共 ${results.length} 个策略</div></div>
+    <div class="stat-card"><div class="l">最优累计收益</div><div class="v ${best.r>=0?'pos':'neg'}">${pct(best.r)}</div><div class="s">年化 ${pct(best.a)}</div></div>
+    <div class="stat-card"><div class="l">最优夏普比率</div><div class="v ${best.sharpe>=1?'pos':''}">${best.sharpe.toFixed(2)}</div><div class="s">${best.sharpe>=1?'✓ 优秀':'一般'}</div></div>
+    <div class="stat-card"><div class="l">最小回撤策略</div><div class="v neg">${pct(-minDd.mdd)}</div><div class="s" style="color:${minDd.color}">${minDd.name}</div></div>
+  `;
+  // 更新表格
+  const tbody=document.querySelector('#resTable tbody');
+  tbody.innerHTML=results.map(r=>`<tr>
+    <td style="color:${r.color};font-weight:600">${r.name}</td>
+    <td class="${r.r>=0?'pos':'neg'}">${pct(r.r)}</td>
+    <td class="${r.a>=0?'pos':'neg'}">${pct(r.a)}</td>
+    <td class="neg">${pct(-r.mdd)}</td>
+    <td>${r.sharpe.toFixed(2)}</td>
+    <td>${(r.wr*100).toFixed(0)}%</td>
+    <td>${r.pl===999?'∞':r.pl.toFixed(2)}</td>
+    <td>${r.tot}</td>
+  </tr>`).join('');
+  // 绘图
+  drawAll(dates,op,cl,hi,lo,results);
+}
+function drawAll(dates,op,cl,hi,lo,results){
+  const dark={backgroundColor:'transparent',textStyle:{color:'#aaa'}};
+  // 主K线图 + 买卖点
+  const pc=echarts.init(document.getElementById('c_price'),'dark');
+  const kdata=dates.map((d,i)=>[op[i],cl[i],lo[i],hi[i]]);
+  const markSeries=results.filter(r=>r.trades&&r.key!=='bh').slice(0,3).map((r,idx)=>({
+    name:r.name+' 信号',type:'scatter',data:r.trades.map(t=>({value:[dates[t.i],t.price],symbol:t.type==='buy'?'triangle':'pin',itemStyle:{color:t.type==='buy'?'#ff4757':'#2ed573'}})),
+    symbolSize:12,z:10
+  }));
+  pc.setOption({...dark,animation:false,grid:{left:60,right:20,top:30,bottom:50},
+    xAxis:{type:'category',data:dates,axisLine:{lineStyle:{color:'#333'}}},
+    yAxis:{scale:true,splitLine:{lineStyle:{color:'#222'}}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:5,height:20}],
+    tooltip:{trigger:'axis',axisPointer:{type:'cross'},backgroundColor:'rgba(30,30,50,0.9)',borderColor:'#667eea'},
+    legend:{textStyle:{color:'#aaa'},top:0},
+    series:[{name:'K线',type:'candlestick',data:kdata,itemStyle:{color:'#ff4757',color0:'#2ed573',borderColor:'#ff4757',borderColor0:'#2ed573'}},...markSeries]
+  });
+  // 资金曲线对比
+  const ec=echarts.init(document.getElementById('c_equity'),'dark');
+  ec.setOption({...dark,animation:false,grid:{left:70,right:20,top:30,bottom:40},
+    xAxis:{type:'category',data:dates,axisLine:{lineStyle:{color:'#333'}}},
+    yAxis:{scale:true,splitLine:{lineStyle:{color:'#222'}},axisLabel:{formatter:v=>(v/10000).toFixed(1)+'万'}},
+    tooltip:{trigger:'axis',backgroundColor:'rgba(30,30,50,0.9)',borderColor:'#667eea',valueFormatter:v=>'¥'+Math.round(v).toLocaleString()},
+    legend:{data:results.map(r=>r.name),textStyle:{color:'#aaa'},top:0},
+    dataZoom:[{type:'inside'}],
+    series:results.map(r=>({name:r.name,type:'line',data:r.eq,smooth:true,showSymbol:false,lineStyle:{color:r.color,width:r.key==='bh'?1.5:2},areaStyle:r.key===results[0].key?{color:'rgba(102,126,234,0.1)'}:undefined}))
+  });
+  // 回撤对比
+  const dc=echarts.init(document.getElementById('c_dd'),'dark');
+  const ddSeries=results.map(r=>{
+    let p=r.eq[0];const dd=r.eq.map(v=>{if(v>p)p=v;return-(p-v)/p*100});
+    return{name:r.name,type:'line',data:dd,smooth:true,showSymbol:false,lineStyle:{color:r.color,width:1.5},areaStyle:{color:r.color+'20'}};
+  });
+  dc.setOption({...dark,animation:false,grid:{left:50,right:20,top:30,bottom:30},
+    xAxis:{type:'category',data:dates,axisLine:{lineStyle:{color:'#333'}}},
+    yAxis:{splitLine:{lineStyle:{color:'#222'}},axisLabel:{formatter:'{value}%'}},
+    tooltip:{trigger:'axis',backgroundColor:'rgba(30,30,50,0.9)',valueFormatter:v=>v.toFixed(2)+'%'},
+    legend:{textStyle:{color:'#aaa'},top:0,right:10},
+    series:ddSeries
+  });
+  // 收益分布
+  const dic=echarts.init(document.getElementById('c_dist'),'dark');
+  dic.setOption({...dark,animation:false,grid:{left:60,right:20,top:20,bottom:30},
+    xAxis:{type:'category',data:results.map(r=>r.name),axisLine:{lineStyle:{color:'#333'}}},
+    yAxis:{splitLine:{lineStyle:{color:'#222'}},axisLabel:{formatter:'{value}%'}},
+    tooltip:{trigger:'axis',backgroundColor:'rgba(30,30,50,0.9)',valueFormatter:v=>v.toFixed(2)+'%'},
+    series:[{type:'bar',data:results.map(r=>({value:(r.r*100).toFixed(2),itemStyle:{color:r.r>=0?'#ff4757':'#2ed573'}})),label:{show:true,position:'top',color:'#aaa',formatter:'{c}%'}}]
+  });
+  window._charts=[pc,ec,dc,dic];
+}
+// 策略卡片点击切换
+document.querySelectorAll('.strat').forEach(el=>{
+  el.addEventListener('click',()=>el.classList.toggle('on'));
+});
+// 时间范围按钮
+document.querySelectorAll('.range-grp button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.range-grp button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById('startDate').value='';
+    document.getElementById('endDate').value='';
+  });
+});
+// 自定义日期输入时清除按钮选中
+['startDate','endDate'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{
+    document.querySelectorAll('.range-grp button').forEach(x=>x.classList.remove('on'));
+  });
+});
+// 股票切换
+document.getElementById('stock').addEventListener('change',e=>{
+  loadStock(e.target.value,()=>{});
+});
+// 运行按钮
+document.getElementById('runBtn').addEventListener('click',()=>{
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;btn.textContent='⏳ 运行中...';
+  setTimeout(()=>{
+    try{runBacktest()}catch(err){alert('回测出错: '+err.message);console.error(err)}
+    btn.disabled=false;btn.textContent='▶ 运行回测';
+  },50);
+});
+// 重置按钮
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  document.getElementById('p_ma_s').value=5;
+  document.getElementById('p_ma_l').value=20;
+  document.getElementById('p_tt_i').value=20;
+  document.getElementById('p_tt_o').value=10;
+  document.getElementById('p_rsi_h').value=70;
+  document.getElementById('p_rsi_l').value=30;
+  document.getElementById('cash').value=100000;
+  document.getElementById('slip').value=0.1;
+  document.getElementById('fee').value=0.03;
+  document.querySelectorAll('.strat').forEach(x=>x.classList.remove('on'));
+  document.querySelector('[data-s="dualma"]').classList.add('on');
+  document.querySelector('[data-s="turtle"]').classList.add('on');
+});
+// 响应窗口大小
+window.addEventListener('resize',()=>{if(window._charts)window._charts.forEach(c=>c&&c.resize())});
+// 初始加载
+loadStock(document.getElementById('stock').value,()=>{
+  // 自动运行一次
+  setTimeout(runBacktest,100);
+});
+</script>
+</body>
+</html>
