@@ -1,6 +1,11 @@
 node_modules/
 __pycache__/
+# 排除作业相关的 Python 文件（包括子目录）
 *.py
+!task*.py
+!TASK*.py
+!**/task*.py
+!**/TASK*.py
 .mypy_cache/
 .pytest_cache/
 .workbuddy/
